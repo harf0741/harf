@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عرض ملف PDF</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* التنسيق العام */
+        body {
+            font-family: 'Tajawal', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            direction: rtl; /* للنصوص العربية */
+        }
+
+        /* العنوان */
+        header {
+            background-color: #081b15;
+            color: #f4e4b1;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        /* منطقة عرض PDF */
+        #pdf-container {
+            width: 90%;
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            text-align: center;
+        }
+
+        /* عناصر التحكم */
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .controls button {
+            background-color: #081b15;
+            color: #f4e4b1;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .controls button:hover {
+            background-color: #0a2a1f;
+        }
+
+        /* الصفحات */
+        .page {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>عرض كتاب اصوات عقول</h1>
+    </header>
+
+    <div id="pdf-container">
+        <div class="controls">
+            <button id="prev-page">الصفحة السابقة</button>
+            <button id="next-page">الصفحة التالية</button>
+            <span>الصفحة: <span id="page-num"></span> / <span id="page-count"></span></span>
+        </div>
+        <canvas id="pdf-render"></canvas>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script>
+        // ملف PDF الذي تريد عرضه
+        const pdfUrl = '/pdf/اصوات عقول -17.pdf'; // استبدل بمسار ملف PDF الخاص بك
+
+        // تهيئة PDF.js
+        let pdfDoc = null,
+            pageNum = 1,
+            pageRendering = false,
+            pageNumPending = null,
+            scale = 1.5,
+            canvas = document.getElementById('pdf-render'),
+            ctx = canvas.getContext('2d');
+
+        // عرض الصفحة
+        function renderPage(num) {
+            pageRendering = true;
+            pdfDoc.getPage(num).then(function(page) {
+                const viewport = page.getViewport({ scale });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                const renderTask = page.render(renderContext);
+
+                renderTask.promise.then(function() {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                });
+            });
+
+            document.getElementById('page-num').textContent = num;
+        }
+
+        // الانتقال إلى الصفحة التالية
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+
+        // الصفحة السابقة
+        function onPrevPage() {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        }
+
+        // الصفحة التالية
+        function onNextPage() {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        }
+
+        // تحميل ملف PDF
+        pdfjsLib.getDocument(pdfUrl).promise.then(function(pdfDoc_) {
+            pdfDoc = pdfDoc_;
+            document.getElementById('page-count').textContent = pdfDoc.numPages;
+            renderPage(pageNum);
+        }).catch(function(error) {
+            console.error('Error loading PDF: ', error);
+        });
+
+        // إضافة الأحداث للأزرار
+        document.getElementById('prev-page').addEventListener('click', onPrevPage);
+        document.getElementById('next-page').addEventListener('click', onNextPage);
+
+        // تحسين العرض على الأجهزة المحمولة
+        window.addEventListener('resize', function() {
+            if (pdfDoc) {
+                renderPage(pageNum);
+            }
+        });
+    </script>
+</body>
+</html>
